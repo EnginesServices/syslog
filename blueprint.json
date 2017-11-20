@@ -15,8 +15,62 @@
         "level": "alpha",
         "patch": 0
       }
-    }
+    },
+    "software": {
+      "display": {
+        "title": "Syslog",
+        "label": "syslog"
+      }
+    },
+    "timestamp": "2017-11-20T13:35:08+11:00"
   },
   "software": {
+    "base": {
+      "name": "syslog",
+      "publisher_namespace": "EnginesSystem",
+      "type_path": "syslog",
+      "service_handle_field": "log_name",
+      "parent_image": "engines/servicebase",
+      "run_as_user": "syslog",
+      "deployment_type": "worker",
+      "memory": {
+        "required": 128
+      },
+      "persistent": true
+    },
+    "scripts": {
+      "start": {
+        "language": "sh",
+        "content": "#!/bin/sh\r\n\r\nPID_FILE=/var/run/ng-syslog.pid\r\nexport PID_FILE\r\n. /home/engines/functions/trap.sh\r\n \r\nsudo -n  syslog-ng -F -f /etc/syslog-ng/syslog-ng.conf -p /$PID_FILE --no-caps  -v -e &\r\n\r\nstartup_complete\r\n\r\nwait  \r\nexit_code=$?\r\n\r\nshutdown_complete"
+      }
+    },
+    "system_packages": [
+      {
+        "package": "syslog-ng-core"
+      },
+      {
+        "package": "syslog-n"
+      }
+    ],
+    "service_configurations": [
+      {
+        "publisher_namespace": "EnginesSystem",
+        "type_path": "filesystem/local/filesystem",
+        "variables": {
+          "service_name": "logs",
+          "volume_src": "",
+          "engine_path": " /var/log/rmt/",
+          "permissions": "rw",
+          "user": "syslog",
+          "group": "syslog"
+        }
+      }
+    ],
+    "template_files": [
+      {
+        "path": "/etc/syslog-ng/syslog-ng.conf",
+        "content": "version: 3.5\r\n@include \"scl.conf\"\r\n# @include \"`scl-root`/system/tty10.conf\"\r\n\r\n# Syslog-ng configuration file, compatible with default Debian syslogd\r\n# installation.\r\n\r\n# First, set some global options.\r\noptions { ts-format(iso); chain_hostnames(off); flush_lines(0); dns-cache-size(1000);use_dns(yes); use_fqdn(no);\r\n          owner(\"root\"); group(\"containers\"); perm(0640); stats_freq(0); create-dirs(yes);\r\n          bad_hostname(\"^gconfd$\");\r\n};\r\n\r\n\r\n########################\r\n# Sources\r\n########################\r\n#source s_net { udp(ip(0.0.0.0) port(514)); };\r\nsource s_net { tcp(ip(0.0.0.0) port(514)); };\r\n\r\n\r\n#######################\r\n# Destinations\r\n########################\r\n# First some standard logfile\r\n#\r\ndestination d_auth { file(\"/var/log/rmt/auth.log\"); };\r\n#destination d_h_auth { file(\"/var/log/rmt/a_auth.log\"); };\r\ndestination d_cron { file(\"/var/log/rmt/cron.log\"); };\r\ndestination d_daemon { file(\"/var/log/rmt/daemon.log\"); };\r\n\r\ndestination d_kern { file(\"/var/log/rmt/kern.log\"); };\r\ndestination d_lpr { file(\"/var/log/rmt/lpr.log\"); };\r\n#destination d_h_stmp { file(\"/var/log/rmt/smtp_mail.log\"); };\r\ndestination d_mail { file(\"/var/log/rmt/mail.log\"); };\r\ndestination d_syslog { file(\"/var/log/rmt/syslog\"); };\r\ndestination d_user { file(\"/var/log/rmt/user.log\"); };\r\ndestination d_uucp { file(\"/var/log/rmt/uucp.log\"); };\r\n\r\n# This files are the log come from the mail subsystem.\r\n#\r\ndestination d_mailinfo { file(\"/var/log/rmt/mail.info\"); };\r\ndestination d_mailwarn { file(\"/var/log/rmt/mail.warn\"); };\r\ndestination d_mailerr { file(\"/var/log/rmt/mail.err\"); };\r\n\r\n\r\n\r\n# Some `catch-all' logfiles.\r\n#\r\ndestination d_debug { file(\"/var/log/rmt/debug\"); };\r\ndestination d_error { file(\"/var/log/rmt/error\"); };\r\ndestination d_messages { file(\"/var/log/rmt/messages\"); };\r\n\r\n\r\n########################\r\n# Filters\r\n########################\r\n# Here's come the filter options. With this rules, we can set which\r\n# message go where.\r\n\r\nfilter f_dbg { level(debug); };\r\nfilter f_info { level(info); };\r\nfilter f_notice { level(notice); };\r\nfilter f_warn { level(warn); };\r\nfilter f_err { level(err); };\r\nfilter f_crit { level(crit .. emerg); };\r\n\r\nfilter f_debug { level(debug) and not facility(auth, authpriv, news, mail); };\r\nfilter f_error { level(err .. emerg) ; };\r\nfilter f_messages { level(info,notice,warn) and\r\n                    not facility(auth,authpriv,cron,daemon,mail,news); };\r\n\r\nfilter f_auth { facility(auth, authpriv) and not filter(f_debug); };\r\nfilter f_cron { facility(cron) and not filter(f_debug); };\r\nfilter f_daemon { facility(daemon) and not filter(f_debug); };\r\nfilter f_kern { facility(kern) and not filter(f_debug); };\r\nfilter f_lpr { facility(lpr) and not filter(f_debug); };\r\nfilter f_local { facility(local0, local1, local3, local4, local5,\r\n                        local6, local7) and not filter(f_debug); };\r\n\r\nfilter f_mail { facility(mail) and not filter(f_debug); };\r\nfilter f_news { facility(news) and not filter(f_debug); };\r\nfilter f_syslog3 { not facility(auth, authpriv, mail) and not filter(f_debug); };\r\nfilter f_user { facility(user) and not filter(f_debug); };\r\nfilter f_uucp { facility(uucp) and not filter(f_debug); };\r\n\r\nfilter f_cnews { level(notice, err, crit) and facility(news); };\r\nfilter f_cother { level(debug, info, notice, warn) or facility(daemon, mail); };\r\n\r\nfilter f_ppp { facility(local2) and not filter(f_debug); };\r\n\r\n\r\n########################\r\n# Log paths\r\n########################\r\n\r\nlog { source(s_net); filter(f_auth); destination(d_auth); };\r\nlog { source(s_net); filter(f_cron); destination(d_cron); };\r\nlog { source(s_net); filter(f_daemon); destination(d_daemon); };\r\nlog { source(s_net); filter(f_kern); destination(d_kern); };\r\nlog { source(s_net); filter(f_lpr); destination(d_lpr); };\r\nlog { source(s_net); filter(f_syslog3); destination(d_syslog); };\r\nlog { source(s_net); filter(f_user); destination(d_user); };\r\nlog { source(s_net); filter(f_uucp); destination(d_uucp); };\r\n\r\nlog { source(s_net); filter(f_mail); destination(d_mail); };\r\nlog { source(s_net); filter(f_mail); filter(f_info); destination(d_mailinfo); };\r\nlog { source(s_net); filter(f_mail); filter(f_warn); destination(d_mailwarn); };\r\nlog { source(s_net); filter(f_mail); filter(f_err); destination(d_mailerr); };\r\n\r\n\r\nlog { source(s_net); filter(f_debug); destination(d_debug); flags(catchall); };\r\nlog { source(s_net); filter(f_error); destination(d_error); flags(catchall) ;};\r\nlog { source(s_net); filter(f_messages); destination(d_messages); flags(catchall); };\r\n\r\n\r\n\r\n###\r\n# Include all config files in /etc/syslog-ng/conf.d/\r\n###\r\n@include \"/etc/syslog-ng/conf.d/*.conf\"\r\n"
+      }
+    ]
   }
 }
