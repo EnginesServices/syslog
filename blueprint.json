@@ -2,8 +2,8 @@
   "schema": {
     "type": "service_blueprint",
     "version": {
-      "major": 1,
-      "minor": 0
+      "major": 0,
+      "minor": 1
     },
     "origin": "Engines Developer Studio 0.2"
   },
@@ -22,7 +22,7 @@
         "label": "syslog"
       }
     },
-    "timestamp": "2017-11-20T13:35:08+11:00"
+    "timestamp": "2020-06-04T11:43:18+10:00"
   },
   "software": {
     "base": {
@@ -31,17 +31,23 @@
       "type_path": "syslog",
       "service_handle_field": "log_name",
       "parent_image": "engines/servicebase",
-      "run_as_user": "syslog",
       "deployment_type": "worker",
+      "default_stop_timeout": 0,
+      "restart_attempts": 0,
       "memory": {
         "required": 128
       },
+      "run_as_user": "syslog",
+      "user_id": "22012",
+      "create_user": "0"
+    },
+    "disposition": {
       "persistent": true
     },
     "scripts": {
       "start": {
         "language": "sh",
-        "content": "#!/bin/sh\r\n\r\nPID_FILE=/var/run/ng-syslog.pid\r\nexport PID_FILE\r\n. /home/engines/functions/trap.sh\r\n \r\nsudo -n  syslog-ng -F -f /etc/syslog-ng/syslog-ng.conf -p /$PID_FILE --no-caps  -v -e &\r\n\r\nstartup_complete\r\n\r\nwait  \r\nexit_code=$?\r\n\r\nshutdown_complete"
+        "content": "#!/bin/sh\r\n\r\nPID_FILE=/home/engines/run/syslog.pid\r\nexport PID_FILE\r\n. /home/engines/functions/trap.sh\r\n \r\nsudo -n  syslog-ng -F -f /etc/syslog-ng/syslog-ng.conf -p $PID_FILE --no-caps  -v -e &\r\n\r\nstartup_complete\r\n\r\nwait  \r\nexit_code=$?\r\n/home/engines/scripts/signal/_signal.sh\r\nshutdown_complete\r\n"
       }
     },
     "system_packages": [
@@ -49,7 +55,7 @@
         "package": "syslog-ng-core"
       },
       {
-        "package": "syslog-n"
+        "package": "syslog-ng"
       }
     ],
     "service_configurations": [
@@ -62,7 +68,9 @@
           "engine_path": " /var/log/rmt/",
           "permissions": "rw",
           "user": "syslog",
-          "group": "syslog"
+          "group": "syslog",
+          "fw_user": "_Engines_Builder(cont_user_id)",
+          "exclude_from_backup": "false"
         }
       }
     ],
